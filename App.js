@@ -1,86 +1,82 @@
-import { SafeAreaView, View, StyleSheet, Text, Pressable, TextInput, FlatList, ActivityIndicator } from 'react-native'
-import ShoppingItem from './components/ShoppingItem'
+import { SafeAreaView, View, StyleSheet, Text, Pressable, TextInput, FlatList, ActivityIndicator } from 'react-native';
+import ShoppingItem from './components/ShoppingItem';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect, useState } from 'react';
-import { db, collection, addDoc, getDocs, deleteDoc, doc } from './firebase/index'
+import { db, collection, addDoc, getDocs, deleteDoc, doc } from './firebase/index';
 
 export default function App() {
-
-  const [title, setTitle] = useState("")
-  const [shoppingList, setShoppingList] = useState([])
+  const [title, setTitle] = useState("");
+  const [shoppingList, setShoppingList] = useState([]);
 
   const addShoppingItem = async() => {
     try {
-      const docRef = await addDoc(collection(db, "shopping"), {
+      await addDoc(collection(db, "shopping"), {
         title: title,
         isChecked: false
-      })
-      setTitle("")
+      });
+      setTitle("");
+      await getShoppingList(); // Chamada para atualizar a lista
     } catch (e) {
-      console.error("Erro: ", e)
+      console.error("Erro: ", e);
     }
-    getShoppingList()
-  }
+  };
 
   const getShoppingList = async() => {
     const querySnapshot = await getDocs(collection(db, "shopping"));
+    const items = [];
     querySnapshot.forEach((doc) => {
-      setShoppingList({
+      items.push({
         ...doc.data(),
         id: doc.id
-      })
+      });
     });
-  }
+    setShoppingList(items); // Atualiza o estado com todos os itens
+  };
 
   const deleteShoppingList = async() => {
     const querySnapshot = await getDocs(collection(db, "shopping"));
-    
-    querySnapshot.docs.map((item) => deleteDoc(doc(db, "shopping", item.id)))
+    await Promise.all(querySnapshot.docs.map((item) => deleteDoc(doc(db, "shopping", item.id))));
+    getShoppingList(); // Atualiza a lista após deletar
+  };
 
-    getShoppingList()
-  }
-
-  useEffect(()=>{
-    getShoppingList()
-  }, [])
+  useEffect(() => {
+    getShoppingList();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
-
       <View style={styles.header}>
-
         <Text style={styles.heading}>Easy List</Text>
-
         <Text style={styles.noOfItems}>{shoppingList.length}</Text>
-
         <Pressable style={styles.button} onPress={deleteShoppingList}>
           <MaterialIcons name="delete" size={30} color="black"/>
         </Pressable>
-
       </View>
 
-      { shoppingList.length > 0 ?
-          <FlatList
-            data={shoppingList}
-            renderItem={
-              ({item})=>
-              <ShoppingItem title={item.title} isChecked={item.isChecked} id={item.id}
+      {shoppingList.length > 0 ? (
+        <FlatList
+          data={shoppingList}
+          renderItem={({item}) => (
+            <ShoppingItem 
+              title={item.title} 
+              isChecked={item.isChecked} 
+              id={item.id}
               getShoppingList={getShoppingList}
-              />
-            }
-            key={(item)=>item.id}
-          /> :
-          <ActivityIndicator/>
-      }
+            />
+          )}
+          keyExtractor={(item) => item.id} // Chave única para cada item
+        />
+      ) : (
+        <ActivityIndicator/>
+      )}
 
       <TextInput
-      placeholder='Item de compra'
-      style={styles.input}
-      value={title}
-      onChangeText={(text) => setTitle(text)}
-      onSubmitEditing={addShoppingItem}
+        placeholder='Item de compra'
+        style={styles.input}
+        value={title}
+        onChangeText={(text) => setTitle(text)}
+        onSubmitEditing={addShoppingItem}
       />
-
     </SafeAreaView>
   );
 }
